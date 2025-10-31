@@ -7,39 +7,6 @@ import (
 	"os"
 )
 
-// Elemento representa qualquer objeto do mapa (parede, personagem, vegetação, etc)
-type Elemento struct {
-	simbolo  rune
-	cor      Cor
-	corFundo Cor
-	tangivel bool // Indica se o elemento bloqueia passagem
-}
-
-// Jogo contém o estado atual do jogo
-type Jogo struct {
-	Mapa               [][]Elemento // grade 2D representando o mapa
-	PosX, PosY         int          // posição atual do personagem
-	UltimoVisitado     Elemento     // elemento que estava na posição do personagem antes de mover
-	StatusMsg          string       // mensagem para a barra de status
-	PatoPosX, PatoPosY int          // posição do pato
-	PatoInteragiu      bool         // se o pato foi interagido
-	PatoUltimoVisitado Elemento
-	PortalAtivo        bool
-}
-
-// Elementos visuais do jogo
-var (
-	Personagem    = Elemento{'☺', CorCinzaEscuro, CorPadrao, true}
-	Inimigo       = Elemento{'☠', CorVermelho, CorPadrao, true}
-	Parede        = Elemento{'▤', CorParede, CorFundoParede, true}
-	Vegetacao     = Elemento{'♣', CorVerde, CorPadrao, false}
-	Vazio         = Elemento{' ', CorPadrao, CorPadrao, false}
-	Moeda         = Elemento{'ၜ', CorAmarelo, CorPadrao, false}
-	PortalAtivo   = Elemento{'○', CorMagenta, CorPadrao, false}
-	PortalInativo = Vazio
-	Pato          = Elemento{'ࠎ', CorAzul, CorPadrao, true}
-)
-
 var portalChannel = make(chan bool)
 var mapChannel = make(chan func(*Jogo))
 var gameOverChannel = make(chan struct{})
