@@ -63,13 +63,18 @@ func moverPato(jogo *Jogo) {
 }
 
 func interagirComPato(jogo *Jogo) {
+	// --- CORREÇÃO ---
+	// A função agora checa o 'jogo.PosX/Y' (jogador local)
+	// em vez de um 'playerID'
 	distanciaX := math.Abs(float64(jogo.PosX - jogo.PatoPosX))
 	distanciaY := math.Abs(float64(jogo.PosY - jogo.PatoPosY))
 
 	if (distanciaX <= 1 && distanciaY == 0) || (distanciaY <= 1 && distanciaX == 0) {
-		cmd := func(jogo *Jogo) {
-			jogo.PatoInteragiu = true
-			jogo.StatusMsg = "Você fez carinho no pato! Ele parou de se mover."
+		cmd := func(j *Jogo) {
+			j.PatoInteragiu = true
+			// --- CORREÇÃO ---
+			// Atualiza o StatusMsg do jogo, não de um player específico
+			j.StatusMsg = "Você fez carinho no pato! Ele parou de se mover."
 		}
 		mapChannel <- cmd
 	}

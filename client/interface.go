@@ -12,7 +12,6 @@ import (
 // Define um tipo Cor para encapsuladar as cores do termbox
 type Cor = termbox.Attribute
 
-// Definições de cores utilizadas no jogo
 const (
 	CorPadrao      Cor = termbox.ColorDefault
 	CorCinzaEscuro     = termbox.ColorDarkGray
@@ -26,7 +25,6 @@ const (
 	CorAzul            = termbox.ColorBlue
 )
 
-// EventoTeclado representa uma ação detectada do teclado (como mover, sair ou interagir)
 type EventoTeclado struct {
 	Tipo  string // "sair", "interagir", "mover"
 	Tecla rune   // Tecla pressionada, usada no caso de movimento
@@ -60,7 +58,7 @@ func interfaceLerEventoTeclado() EventoTeclado {
 }
 
 // Renderiza todo o estado atual do jogo na tela
-func interfaceDesenharJogo(jogo *Jogo) {
+func interfaceDesenharJogo(jogo *Jogo, myId int) {
 	interfaceLimparTela()
 
 	// Desenha todos os elementos do mapa
@@ -70,11 +68,19 @@ func interfaceDesenharJogo(jogo *Jogo) {
 		}
 	}
 
-	// Desenha o personagem sobre o mapa
+	if jogo.Players != nil {
+		for id, playerState := range jogo.Players {
+			if id != myID { // Não desenha nosso próprio 'fantasma'
+				interfaceDesenharElemento(playerState.PosX, playerState.PosY, PersonagemRemoto)
+			}
+		}
+	}
+
+	// Desenha o personagem local (por cima)
 	interfaceDesenharElemento(jogo.PosX, jogo.PosY, Personagem)
 
 	// Desenha a barra de status
-	interfaceDesenharBarraDeStatus(jogo)
+	interfaceDesenharBarraDeStatus(jogo, jogo.StatusMsg)
 
 	// Força a atualização do terminal
 	interfaceAtualizarTela()
@@ -96,9 +102,9 @@ func interfaceDesenharElemento(x, y int, elem Elemento) {
 }
 
 // Exibe uma barra de status com informações úteis ao jogador
-func interfaceDesenharBarraDeStatus(jogo *Jogo) {
+func interfaceDesenharBarraDeStatus(jogo *Jogo, statusMsg string) {
 	// Linha de status dinâmica
-	for i, c := range jogo.StatusMsg {
+	for i, c := range statusMsg {
 		termbox.SetCell(i, len(jogo.Mapa)+1, c, CorTexto, CorPadrao)
 	}
 
