@@ -1,4 +1,3 @@
-// client/main.go
 package main
 
 import (
@@ -8,20 +7,22 @@ import (
 	"sync"
 	"time"
 
-	"jogo/shared" // MUDE para o nome do seu módulo
+	"jogo/shared"
 )
 
 var (
-	renderChannel   = make(chan struct{})
-	client          *rpc.Client
-	myID            int
+	renderChannel   = make(chan struct{})              // Sinaliza para renderManager redesenhar
+	client          *rpc.Client                        // Conexão RPC com o servidor
+	myID            int                                // Nosso ID de jogador
 	jogo            Jogo                               // O estado de jogo local é global
 	lastServerState = make(map[int]shared.PlayerState) // Último estado vindo do server
 	rpcMu           sync.Mutex                         // Protege chamadas RPC
-	sequenceNumber  = 0                                // Nosso contador de comandos
-	seqMu           sync.Mutex
+	sequenceNumber  = 0                                // Contador de comandos
+	seqMu           sync.Mutex                         // Protege sequenceNumber garantindo execução atômica
 )
 
+// garante que cada chamada RPC que modifica estado
+// use um sequence number único
 func getNovoSequenceNumber() int {
 	seqMu.Lock()
 	defer seqMu.Unlock()
@@ -29,29 +30,24 @@ func getNovoSequenceNumber() int {
 	return sequenceNumber
 }
 
+// função genérica para chamadas RPC com reenvio
 func callWithRetry(serviceMethod string, args interface{}, reply interface{}) {
 	// Trava o RPC para não enviar dois comandos ao mesmo tempo
 	rpcMu.Lock()
 	defer rpcMu.Unlock()
 
+	// Tenta até 3 vezes
 	const maxRetries = 3
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
+
+		// Se em alguma tentativa retornar com erro nil, retorna sucesso
 		err := client.Call(serviceMethod, args, reply)
 		if err == nil {
-			return // Sucesso!
+			return
 		}
 
-		// Falha
+		// loga o erro
 		log.Printf("Erro RPC (%s): %v. Tentativa %d/%d", serviceMethod, err, i+1, maxRetries)
-
-		// Se for erro de conexão, tenta re-discar
-		if err == rpc.ErrShutdown {
-			log.Println("Conexão perdida. Tentando reconectar...")
-			// (Nota: Em um app real, o 'client' global precisaria
-			// ser reatribuído aqui. Para este trabalho, um
-			// simples sleep pode ser o suficiente para simular)
-			// client, _ = rpc.Dial("tcp", "localhost:12345")
-		}
 
 		time.Sleep(500 * time.Millisecond) // Espera antes de tentar de novo
 	}
@@ -59,44 +55,44 @@ func callWithRetry(serviceMethod string, args interface{}, reply interface{}) {
 }
 
 func main() {
-	// 1. Conecta ao Servidor RPC
 	var err error
+	// Conecta ao servidor RPC
 	client, err = rpc.Dial("tcp", "localhost:12345")
 	if err != nil {
-		log.Fatal("Erro ao discar:", err)
+		log.Fatal("Erro ao conectar:", err)
 	}
 
-	// 2. Chama o Connect para entrar no jogo
+	// Chama o Connect para entrar no jogo
 	connectArgs := &shared.ConnectArgs{}
 	connectReply := &shared.ConnectReply{}
 	err = client.Call("GameService.Connect", connectArgs, connectReply)
 	if err != nil {
 		log.Fatal("Erro ao conectar:", err)
 	}
+	// Servidor retornou nosso ID e a lista de jogadores
 	myID = connectReply.PlayerID
 	lastServerState = connectReply.AllPlayers
-	log.Printf("Conectado. Meu ID: %d", myID)
+	log.Printf("Conectado. ID: %d", myID)
 
-	// 3. Inicializa a interface
+	// Inicializa a interface (termbox)
 	interfaceIniciar()
 	defer interfaceFinalizar()
 	defer notifyDisconnect() // Avisa o servidor quando fecharmos
 
-	// 4. Carrega o mapa (como no original)
+	// Usa "mapa.txt" como arquivo padrão ou lê o primeiro argumento
 	mapaFile := "mapa.txt"
 	if len(os.Args) > 1 {
 		mapaFile = os.Args[1]
 	}
 
-	// 5. Inicializa o jogo (como no original)
+	// Inicializa o jogo
 	jogo = jogoNovo() // 'jogo' é global
 	if err := jogoCarregarMapa(mapaFile, &jogo); err != nil {
 		panic(err)
 	}
 	jogo.Players = lastServerState // Seta estado inicial dos players
 
-	// 6. AVISA O SERVIDOR da nossa Posição INICIAL REAL
-	// (lida do mapa, em vez da Posição 1,1 padrão)
+	// goroutine para atualizar o servidor quando mudarmos de estado
 	go updateServerMyState()
 
 	// 7. Inicia todos os managers LOCAIS (como no original)
@@ -104,10 +100,10 @@ func main() {
 	go coinManager(&jogo)
 	go portalManager(&jogo)
 	go patoManager(&jogo)
-	go renderManager(&jogo) // renderManager modificado
+	go renderManager(&jogo)
 
 	// 8. Desenha o estado inicial
-	interfaceDesenharJogo(&jogo, myID)
+	interfaceDesenharJogo(&jogo)
 
 	// 9. Loop principal de entrada
 	for {
@@ -116,9 +112,8 @@ func main() {
 		// Guarda Posição antiga para checar se houve mudança
 		oldX, oldY := jogo.PosX, jogo.PosY
 
-		// Executa a lógica LOCALMENTE
 		if continuar := personagemExecutarAcao(evento, &jogo); !continuar {
-			break // Sair
+			break
 		}
 
 		// Se a Posição mudou, avisa o servidor
@@ -133,7 +128,9 @@ func main() {
 	}
 }
 
+// atualiza o estado do jogador no servidor
 func updateServerMyState() {
+	// Prepara argumentos
 	args := &shared.UpdateStateArgs{
 		PlayerID:       myID,
 		NewX:           jogo.PosX,
@@ -146,6 +143,7 @@ func updateServerMyState() {
 	callWithRetry("GameService.UpdateState", args, reply)
 }
 
+// notifica o servidor que estamos saindo do jogo
 func notifyDisconnect() {
 	log.Println("Notificando servidor da desconexão...")
 	args := &shared.DisconnectArgs{
@@ -159,42 +157,40 @@ func notifyDisconnect() {
 	client.Close()
 }
 
-// renderManager (MODIFICADO)
+// renderManager
 func renderManager(jogo *Jogo) {
-	renderTicker := time.NewTicker(100 * time.Millisecond) // ~10 FPS
+	// Timer para render automático a cada 100ms
+	renderTicker := time.NewTicker(100 * time.Millisecond)
 	defer renderTicker.Stop()
 
 	for {
 		select {
 		case <-renderTicker.C:
-			// 1. Busca estado (GetState não é um comando que modifica,
-			// então não precisa de sequenceNumber ou reenvio complexo,
-			// mas podemos usar o callWithRetry mesmo assim)
+			// A cada tick, busca estado do servidor
 			args := &shared.GetStateArgs{}
 			reply := &shared.GetStateReply{}
 
-			// Usamos rpcMu aqui para não colidir com um UpdateState
+			// Usamos o mutex para proteger a chamada RPC
 			rpcMu.Lock()
 			err := client.Call("GameService.GetState", args, reply)
 			rpcMu.Unlock()
 
+			// Se a chamada foi bem sucedida]
 			if err == nil {
+				// Atualiza o estado local de todos os players
 				mapChannel <- func(j *Jogo) {
 					j.Players = reply.AllPlayers
 				}
-			} else {
-				log.Println("Erro ao buscar estado:", err)
-				// O reenvio automático já é coberto pela
-				// especificação ("thread dedicada para buscar periodicamente")
-				// Se falhar, o próximo tick (100ms) vai tentar de novo.
 			}
 
-			// 3. Desenha (com o estado atualizado)
-			interfaceDesenharJogo(jogo, myID)
+			// Desenha com o estado atualizado
+			interfaceDesenharJogo(jogo)
 
+		// render para quando nos movemos
 		case <-renderChannel:
-			interfaceDesenharJogo(jogo, myID)
+			interfaceDesenharJogo(jogo)
 
+		// finaliza quando o jogo acabar
 		case <-gameOverChannel:
 			return
 		}

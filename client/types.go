@@ -1,9 +1,8 @@
-// client/types.go
 package main
 
-import "jogo/shared" // Importamos o shared
+import "jogo/shared"
 
-// Elemento (Seu código original)
+// struct de cada "bloco" do mapa
 type Elemento struct {
 	simbolo  rune
 	cor      Cor
@@ -11,7 +10,6 @@ type Elemento struct {
 	tangivel bool
 }
 
-// Vars (Seu código original)
 var (
 	Personagem       = Elemento{'☺', CorCinzaEscuro, CorPadrao, true}
 	PersonagemRemoto = Elemento{'☻', CorVerde, CorPadrao, true} // Outros jogadores
@@ -25,7 +23,7 @@ var (
 	Pato             = Elemento{'ࠎ', CorAzul, CorPadrao, true}
 )
 
-// Jogo (Seu código original, MODIFICADO)
+// Jogo
 type Jogo struct {
 	Mapa               [][]Elemento // grade 2D representando o mapa
 	PosX, PosY         int          // posição atual do personagem local

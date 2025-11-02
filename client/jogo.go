@@ -1,4 +1,3 @@
-// client/jogo.go
 package main
 
 import (
@@ -8,9 +7,7 @@ import (
 	"os"
 )
 
-// !!! --- CRÍTICO: DEFINIÇÃO DOS CHANNELS --- !!!
-// Seus managers (pato, coin, portal, render) precisam que
-// estas variáveis sejam definidas em algum lugar no pacote main.
+// goroutines que funcionam localmente
 var (
 	portalChannel   = make(chan bool)
 	mapChannel      = make(chan func(*Jogo))
@@ -52,7 +49,6 @@ func jogoCarregarMapa(nome string, jogo *Jogo) error {
 				e = Vegetacao
 			case Personagem.simbolo:
 				jogo.PosX, jogo.PosY = x, y // registra a posição inicial do personagem
-				// (e = Vazio por padrão)
 			case Pato.simbolo:
 				jogo.PatoPosX, jogo.PatoPosY = x, y
 				jogo.PatoUltimoVisitado = Vazio
@@ -84,10 +80,10 @@ func jogoPodeMoverPara(jogo *Jogo, x, y int) bool {
 	return true
 }
 
-// Move um elemento para a nova posição (LÓGICA ORIGINAL)
-// *** Esta função estava faltando no seu 'personagem.go' ***
+// Move um elemento para a nova posição
 func jogoMoverElemento(jogo *Jogo, x, y, dx, dy int) bool {
 	nx, ny := x+dx, y+dy
+	// Obtem elemento atual na posição
 	elemento := jogo.Mapa[y][x]
 	elementoNaNovaPosicao := jogo.Mapa[ny][nx]
 
@@ -103,6 +99,7 @@ func jogoMoverElemento(jogo *Jogo, x, y, dx, dy int) bool {
 		return false
 
 	case PortalAtivo.simbolo:
+		// Encontra uma nova posição aleatória para o teletransporte
 		newX, newY := teleportarJogador(jogo)
 		jogo.PatoInteragiu = true
 		jogo.StatusMsg = fmt.Sprintf("Teletransportado para (%d, %d)!", newX, newY)
@@ -121,7 +118,7 @@ func jogoMoverElemento(jogo *Jogo, x, y, dx, dy int) bool {
 	}
 }
 
-// mapManager (Seu código original)
+// mapManager emfilera comandos relacionados ao mapa
 func mapManager(jogo *Jogo) {
 	for {
 		select {

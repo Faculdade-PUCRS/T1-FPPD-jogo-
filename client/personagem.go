@@ -1,13 +1,10 @@
-// server/personagem.go
 package main
 
 import (
 	"fmt"
-	// MUDE PARA O SEU MÓDULO
 )
 
-// Atualiza a posição do personagem com base na tecla pressionada
-// *** FUNÇÃO MODIFICADA ***
+// Atualiza a posição do personagem com base na tecla pressionada (WASD)
 func personagemMover(tecla rune, jogo *Jogo) {
 	dx, dy := 0, 0
 	switch tecla {
@@ -37,13 +34,13 @@ func personagemMover(tecla rune, jogo *Jogo) {
 
 // Define o que ocorre quando o jogador pressiona a tecla de interação
 func personagemInteragir(jogo *Jogo) {
-	interagirComPato(jogo) // Chama a função corrigida de pato.go
-	// Atualmente apenas exibe uma mensagem de status
+	interagirComPato(jogo)
 	jogo.StatusMsg = fmt.Sprintf("Interagindo em (%d, %d)", jogo.PosX, jogo.PosY)
 }
 
 // Processa o evento do teclado e executa a ação correspondente
 func personagemExecutarAcao(ev EventoTeclado, jogo *Jogo) bool {
+	// recebe o evento e executa a ação correspondente
 	switch ev.Tipo {
 	case "sair":
 		// Retorna false para indicar que o jogo deve terminar
